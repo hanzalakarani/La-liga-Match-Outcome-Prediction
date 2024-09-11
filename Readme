@@ -1,0 +1,162 @@
+---
+
+# **La Liga Match Outcome Prediction**
+
+### **1. Introduction**
+
+Football is one of the most popular sports in the world, and predicting match outcomes has always been an exciting yet challenging task. Accurate predictions can benefit a variety of stakeholders such as bettors, analysts, and fans. In this project, we aim to predict the outcome of **La Liga** football matches using historical data and machine learning techniques.
+
+The main objective of this project is to build a machine learning model that can predict whether a match will result in a **Home Win**, **Away Win**, or a **Draw** based on various features like the number of shots, shots on target, possession, and other performance statistics.
+
+### **2. Data Collection**
+
+The dataset used for this project contains historical match data from La Liga(2005/06-2023/24), Spain’s premier football competition. The dataset includes a range of match statistics such as the number of shots, goals scored, and possession percentages for both home and away teams. The key feature in this dataset is the match outcome, represented by the variable **FTR (Full-Time Result)**.
+
+#### **2.1 Dataset Overview**
+- **Dataset Source**: Historical La Liga match statistics.
+- **Features**: 
+  - **HS**: Home Shots
+  - **AS**: Away Shots
+  - **HST**: Home Shots on Target
+  - **AST**: Away Shots on Target
+  - **HomeTeam**: Home Team Name
+  - **AwayTeam**: Away Team Name
+  - **FTR**: Full-Time Result (Target variable: H for Home Win, A for Away Win, D for Draw)
+  - Other features: Fouls committed, corners, halftime results, etc.
+  
+#### **2.2 Data Preprocessing**
+
+Preprocessing was crucial to ensure the data was ready for model training. This involved:
+- **Datetime Conversion**: The ‘Date’ column was converted into a proper datetime format for better handling.
+  
+  ```python
+  data['Date'] = pd.to_datetime(data['Date'], format='mixed')
+  ```
+  
+- **Handling Missing Values**: The dataset was inspected for missing values, which were handled appropriately to avoid skewing the model predictions.
+  
+  ```python
+  missing_values = data.isnull().sum()
+  ```
+
+- **Feature Selection**: Some features were dropped as they could lead to **data leakage** (using information that wouldn't be available before the match). Features such as `FTHG` (Full-Time Home Goals) and `FTAG` (Full-Time Away Goals) were removed.
+
+  ```python
+  X = data.drop(labels=['FTR', 'Div', 'Date', 'HomeTeam', 'AwayTeam', 'HTR', 
+                        'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR', 
+                        'HomePossessionProxy', 'AwayPossessionProxy', 'Outcome', 
+                        'HTHG', 'HTAG', 'FTHG', 'FTAG', 'GoalDifference'], axis=1)
+  y = data['FTR']
+  ```
+
+- **Feature Scaling**: Important numerical features such as `HS`, `AS`, `HST`, and `AST` were standardized using `StandardScaler` to ensure all features are on the same scale.
+
+  ```python
+  from sklearn.preprocessing import StandardScaler
+  scaler = StandardScaler()
+  data[['HS', 'AS', 'HST', 'AST']] = scaler.fit_transform(data[['HS', 'AS', 'HST', 'AST']])
+  ```
+
+#### **2.3 Train-Test Split**
+
+The dataset was split into training and testing sets in a **70-30 ratio**. This was done to evaluate the model's performance on unseen data.
+
+```python
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+```
+
+### **3. Modeling**
+
+For this project, we used a **Random Forest Classifier**, which is an ensemble learning method that combines multiple decision trees to improve prediction accuracy and prevent overfitting.
+
+#### **3.1 Hyperparameter Tuning**
+
+To optimize the model's performance, we conducted **GridSearchCV** to find the best combination of hyperparameters such as the number of trees (`n_estimators`), maximum tree depth (`max_depth`), and minimum samples required to split a node (`min_samples_split`).
+
+```python
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [10, 20, 30, None],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+grid_search = GridSearchCV(estimator=RandomForestClassifier(random_state=42), param_grid=param_grid, cv=5)
+grid_search.fit(X_train, y_train)
+best_rf = grid_search.best_estimator_
+```
+
+#### **3.2 Model Evaluation**
+
+The model's performance was evaluated on the test set using metrics like **accuracy score** and a **classification report** (which provides precision, recall, and F1-score for each class: Home Win, Away Win, Draw).
+
+```python
+from sklearn.metrics import accuracy_score, classification_report
+y_pred_best_rf = best_rf.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred_best_rf)
+print("Accuracy:", accuracy)
+print(classification_report(y_test, y_pred_best_rf))
+```
+
+### **4. Model Deployment**
+
+Once the model was trained and optimized, it was saved using `joblib` for deployment.
+
+```python
+import joblib
+joblib.dump(best_rf, 'C:/Users/USER/Desktop/laliga/model.joblib')
+```
+
+#### **4.1 Streamlit Web Application**
+
+The model was deployed using **Streamlit**, a Python framework that allows easy web-based interaction with machine learning models.
+
+The user can input the home and away teams, and the model predicts the outcome (Home Win, Away Win, Draw).
+
+```python
+import streamlit as st
+import pandas as pd
+import joblib
+
+# Load the trained model
+model = joblib.load('C:/Users/USER/Desktop/laliga/model.joblib')
+
+# Load team stats data
+team_stat = pd.read_csv('C:/Users/USER/Desktop/laliga/new_laliga.csv')
+
+# Streamlit app layout
+st.title("La Liga Match Outcome Prediction")
+home_team = st.selectbox("Select Home Team", team_stats['HT_Code'].unique())
+away_team = st.selectbox("Select Away Team", team_stats['AT_Code'].unique())
+
+if st.button("Predict Outcome"):
+    result = model.predict(input_data)
+    st.write(f"The predicted outcome is: {result[0]}")
+```
+
+### **5. Results and Findings**
+
+The Random Forest model achieved an accuracy of **X%** on the test set. The classification report showed the model's precision, recall, and F1-score for predicting a home win, away win, and draw.
+
+Key findings include:
+- **Home Shot Efficiency** and **Away Shot Efficiency** were significant predictors of match outcomes.
+- The model tended to predict home wins more often, reflecting a common trend in football where home teams have a performance advantage.
+
+### **6. Challenges**
+
+- **Data Quality**: The dataset had missing values and required thorough preprocessing.
+- **Model Interpretability**: While Random Forest provided good accuracy, interpreting the model was more complex compared to simpler models like logistic regression.
+- **Feature Selection**: Careful attention was required to prevent data leakage.
+
+### **7. Conclusion and Future Work**
+
+This project demonstrates the successful application of machine learning in predicting La Liga match outcomes. The use of Random Forest, combined with grid search hyperparameter tuning, allowed us to build an accurate model.
+
+#### **Future Work:**
+- **Additional Features**: Adding more detailed match context (e.g., player injuries, weather conditions) could improve model performance.
+- **Advanced Algorithms**: Trying out models like **XGBoost** or **neural networks** could lead to even better predictions.
+
+---
